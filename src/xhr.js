@@ -1,3 +1,5 @@
+import { reason } from './utils'
+
 export default function xhr(url, options = {}) {
   return new Promise(function(resolve, reject) {
     const { method, headers = {}, data } = options
@@ -26,7 +28,7 @@ export default function xhr(url, options = {}) {
     }
 
     request.onabort = function() {
-      reject(reason('Network request failed'))
+      reject(reason('Network request aborted'))
     }
 
     /**
@@ -44,6 +46,12 @@ export default function xhr(url, options = {}) {
     /**
      * Request
      */
+
+    if ('setRequestHeader' in request) {
+      Object.keys(headers).forEach(name => {
+        request.setRequestHeader(name, headers[name])
+      })
+    }
 
     request.timeout = options.timeout
 

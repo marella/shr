@@ -1,100 +1,92 @@
+import qs from 'qs'
+
+import { isFormData, isObject, reason, append } from './utils'
 import defaults from './defaults'
+import xhr from './xhr'
 
-function isFormData(val) {
-  return typeof FormData !== 'undefined' && val instanceof FormData
-}
-
-function reason(message, response) {
-  const error = new TypeError(message)
-  if (response) {
-    error.response = response
+function transformRequest(data, options) {
+  if (!data) {
+    return data
   }
-  return error
+  if (isFormData(data)) {
+    return data
+  }
+  if (isObject(data)) {
+    return qs.stringify(data, { arrayFormat: 'brackets' })
+  }
+  return data
 }
 
-function request(url, options = {}) {
-  return new Promise(function(resolve, reject) {
-    let headers = options.headers || {}
-    options = Object.assign({}, defaults, options)
-    headers = Object.assign({}, defaults.headers, headers)
-    const method = options.method.toUpperCase()
-    let data = options.data
-    if (data && options.transformRequest) {
-      data = options.transformRequest(data)
-    }
-    if (!data || isFormData(data)) {
-      delete headers['Content-Type'] // Let the browser set it
-    }
-    let request = options._xhr()
-    request.open(method, url, true)
+function request(url, options = {}, adapter = xhr) {
+  const { baseURL = '' } = options
+  url = baseURL + url
+  const headers = Object.assign({}, defaults.headers, options.headers)
+  options = Object.assign({}, defaults, options, { headers })
+  options.method = options.method.toUpperCase()
+  if (options.transformRequest) {
+    options.data = options.transformRequest(options.data, options)
+  }
+  options.data = transformRequest(options.data, options)
+  if (!options.data || isFormData(options.data)) {
+    delete options.headers['Content-Type'] // Let the browser set it
+  }
+  if (options.params) {
+    url +=
+      (url.indexOf('?') === -1 ? '?' : '&') +
+      qs.stringify(options.params, { arrayFormat: 'brackets' })
+  }
 
-    /**
-     * Events
-     */
-
-    request.onload = function() {
-      const response = {
-        data: 'response' in request ? request.response : request.responseText,
-        status: request.status,
-        statusText: request.statusText,
+  return adapter(url, options).then(response => {
+    if (options.isValid(response)) {
+      if (options.transformResponse) {
+        response.data = options.transformResponse(response.data, options)
       }
-      if (options.isValid(response)) {
-        if (options.transformResponse) {
-          response.data = options.transformResponse(response.data)
-        }
-        resolve(response)
-      } else {
-        reject(reason('Invalid response', response))
-      }
-      request = null
+      return response
+    } else {
+      throw reason('Invalid response', response)
     }
-
-    request.onerror = function() {
-      reject(reason('Network request failed'))
-      request = null
-    }
-
-    request.ontimeout = function() {
-      reject(reason('Network request failed'))
-      request = null
-    }
-
-    /**
-     * Progress
-     */
-
-    if (options.onDownloadProgress) {
-      request.addEventListener('progress', options.onDownloadProgress)
-    }
-
-    if (options.onUploadProgress && request.upload) {
-      request.upload.addEventListener('progress', options.onUploadProgress)
-    }
-
-    /**
-     * Request
-     */
-
-    request.timeout = options.timeout
-
-    if (options.withCredentials) {
-      request.withCredentials = true
-    }
-
-    if (options.responseType) {
-      try {
-        request.responseType = options.responseType
-      } catch (e) {
-        if (options.responseType !== 'json') {
-          throw e
-        }
-      }
-    }
-
-    request.send(data || null)
   })
 }
 
-module.exports = {
-  request: request,
+class Client {
+  constructor(options) {
+    this.options = options
+    this.adapter = xhr
+    ;['put', 'patch', 'delete'].forEach(method => {
+      this[method] = (url, data, options = {}) => {
+        data = append(data, '_method', method)
+        return this.post(url, data, options)
+      }
+    })
+  }
+
+  request(url, options = {}) {
+    options = Object.assign({}, this.options, options)
+    return request(url, options, this.adapter)
+  }
+
+  get(url, params, options = {}) {
+    options.method = 'get'
+    options.params = params
+    return this.request(url, options)
+  }
+
+  post(url, data, options = {}) {
+    options.method = 'post'
+    options.data = data
+    return this.request(url, options)
+  }
+
+  setAdapter(adapter) {
+    this.adapter = adapter
+    return this
+  }
 }
+
+export function create(options = {}) {
+  return new Client(options)
+}
+
+export default create()
+
+export { append }

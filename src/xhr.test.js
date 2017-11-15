@@ -4,6 +4,7 @@ describe('xhr', () => {
   const mock = () => ({
     open: jest.fn(),
     send: jest.fn(),
+    setRequestHeader: jest.fn(),
   })
   const url = 'foo'
   const method = 'bar'
@@ -26,6 +27,17 @@ describe('xhr', () => {
     expect(xhr.open.mock.calls[0]).toEqual([method, url, true])
     expect(xhr.send.mock.calls.length).toBe(1)
     expect(xhr.send.mock.calls[0]).toEqual([null])
+  })
+
+  it('should set headers', () => {
+    const headers = {
+      name1: 'value1',
+      name2: 'value2',
+    }
+    const { xhr } = subject({ headers })
+    expect(xhr.setRequestHeader.mock.calls.length).toBe(2)
+    expect(xhr.setRequestHeader.mock.calls[0]).toEqual(['name1', 'value1'])
+    expect(xhr.setRequestHeader.mock.calls[1]).toEqual(['name2', 'value2'])
   })
 
   it('should set timeout', () => {

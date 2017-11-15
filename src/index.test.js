@@ -1,92 +1,66 @@
-import shr from '.'
+import { create } from '.'
+import defaults from './defaults'
 
-describe('xhr', () => {
-  const mock = () => ({
-    open: jest.fn(),
-    send: jest.fn(),
-  })
+describe('shr', () => {
   const url = 'foo'
-  const method = 'bar'
-  const subject = (options = {}, xhr) => {
-    xhr = xhr || mock()
-    options = Object.assign(
-      {
-        method,
-        _xhr: () => xhr,
-      },
-      options
-    )
-    const promise = shr.request(url, options)
-    return { xhr, promise }
+  const subject = options => {
+    const adapter = jest.fn()
+    adapter.mockReturnValue(new Promise(() => {}))
+    const client = create(options)
+    client.setAdapter(adapter)
+    return { client, adapter }
   }
 
-  it('should call open and send', () => {
-    const { xhr } = subject()
-    expect(xhr.open.mock.calls.length).toBe(1)
-    expect(xhr.open.mock.calls[0]).toEqual([method.toUpperCase(), url, true])
-    expect(xhr.send.mock.calls.length).toBe(1)
-    expect(xhr.send.mock.calls[0]).toEqual([null])
+  it('should add base url', () => {
+    const baseURL = 'https://api.example.com/'
+    const { client, adapter } = subject({ baseURL })
+
+    client.request(url)
+    expect(adapter.mock.calls.length).toBe(1)
+    expect(adapter.mock.calls[0][0]).toBe(baseURL + url)
   })
 
-  it('should set timeout', () => {
-    const timeout = 1234
-    const { xhr } = subject({ timeout })
-    expect(xhr.timeout).toBe(timeout)
-  })
-
-  it('should set withCredentials', () => {
-    const withCredentials = true
-    const { xhr } = subject({ withCredentials })
-    expect(xhr.withCredentials).toBe(withCredentials)
-  })
-
-  describe('responseType', () => {
-    const error = new TypeError('some message')
-    const mockWithError = () => {
-      const xhr = mock()
-      Object.defineProperty(xhr, 'responseType', {
-        set: () => {
-          throw error
-        },
-      })
-      return xhr
+  it('should transform params', () => {
+    const params = {
+      key1: 'value1',
+      key2: 'value2',
     }
+    const { client, adapter } = subject()
+    let options
 
-    it('should set responseType', () => {
-      const responseType = 'json'
-      const { xhr } = subject({ responseType })
-      expect(xhr.responseType).toBe(responseType)
-    })
+    client.get(url, params)
+    expect(adapter.mock.calls.length).toBe(1)
+    expect(adapter.mock.calls[0][0]).toBe(url + '?key1=value1&key2=value2')
+    options = adapter.mock.calls[0][1]
+    expect(options.method).toBe('GET')
+    expect(options.data).toBeUndefined()
+    expect(options.headers['Content-Type']).toBeUndefined()
 
-    it('should not throw error when not setting responseType', () => {
-      const mock = mockWithError()
-      const { xhr } = subject(undefined, mock)
-      expect(xhr).toBe(mock)
-      expect(xhr.open.mock.calls.length).toBe(1)
-      expect(xhr.send.mock.calls.length).toBe(1)
-      expect(xhr.responseType).toBeUndefined()
-    })
+    client.get(url + '?key3=value3', params)
+    expect(adapter.mock.calls.length).toBe(2)
+    expect(adapter.mock.calls[1][0]).toBe(
+      url + '?key3=value3&key1=value1&key2=value2'
+    )
+    options = adapter.mock.calls[1][1]
+    expect(options.method).toBe('GET')
+    expect(options.data).toBeUndefined()
+    expect(options.headers['Content-Type']).toBeUndefined()
+  })
 
-    it('should throw error when setting responseType', done => {
-      const mock = mockWithError()
-      const { xhr, promise } = subject({ responseType: 'text' }, mock)
-      expect(xhr).toBe(mock)
-      expect(xhr.open.mock.calls.length).toBe(1)
-      expect(xhr.send.mock.calls.length).toBe(0)
-      expect(xhr.responseType).toBeUndefined()
-      promise.catch(e => {
-        expect(e).toBe(error)
-        done()
-      })
-    })
-
-    it('should not throw error when setting responseType as json', () => {
-      const mock = mockWithError()
-      const { xhr, promise } = subject({ responseType: 'json' }, mock)
-      expect(xhr).toBe(mock)
-      expect(xhr.open.mock.calls.length).toBe(1)
-      expect(xhr.send.mock.calls.length).toBe(1)
-      expect(xhr.responseType).toBeUndefined()
-    })
+  it('should transform data', () => {
+    const data = {
+      key1: 'value1',
+      key2: 'value2',
+    }
+    const { client, adapter } = subject()
+    client.post(url, data)
+    expect(adapter.mock.calls.length).toBe(1)
+    expect(adapter.mock.calls[0][0]).toBe(url)
+    const options = adapter.mock.calls[0][1]
+    expect(options.method).toBe('POST')
+    expect(options.data).toBe('key1=value1&key2=value2')
+    expect(options.headers['Content-Type']).toBe(
+      defaults.headers['Content-Type']
+    )
   })
 })
