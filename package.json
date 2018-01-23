@@ -1,6 +1,6 @@
 {
   "name": "shr",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Simple HTTP requests for browser. \"Simple requests\" don't trigger a CORS preflight.",
   "main": "cjs/index.js",
   "module": "es/index.js",
