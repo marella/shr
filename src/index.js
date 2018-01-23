@@ -12,7 +12,7 @@ function transformRequest(data, options) {
     return data
   }
   if (isObject(data)) {
-    return qs.stringify(data, { arrayFormat: 'brackets' })
+    return qs.stringify(data)
   }
   return data
 }
@@ -31,9 +31,7 @@ function request(url, options = {}, adapter = xhr) {
     delete options.headers['Content-Type'] // Let the browser set it
   }
   if (options.params) {
-    url +=
-      (url.indexOf('?') === -1 ? '?' : '&') +
-      qs.stringify(options.params, { arrayFormat: 'brackets' })
+    url += (url.indexOf('?') === -1 ? '?' : '&') + qs.stringify(options.params)
   }
 
   return adapter(url, options).then(response => {
