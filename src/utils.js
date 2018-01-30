@@ -18,7 +18,7 @@ export function append(data = {}, key, value) {
   if (isFormData(data)) {
     data.append(key, value)
   } else if (isObject(data)) {
-    data[key] = value
+    data = Object.assign({}, data, { [key]: value })
   } else {
     data += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`
   }
