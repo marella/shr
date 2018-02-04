@@ -4,7 +4,7 @@ import { isFormData, isObject, reason, append } from './utils'
 import defaults from './defaults'
 import xhr from './xhr'
 
-function transformRequest(data, options) {
+function transformData(data, options) {
   if (!data) {
     return data
   }
@@ -24,9 +24,13 @@ function request(url, options = {}, adapter = xhr) {
   options = Object.assign({}, defaults, options, { headers })
   options.method = options.method.toUpperCase()
   if (options.transformRequest) {
-    options.data = options.transformRequest(options.data, options)
+    if (options.method === 'GET') {
+      options.params = options.transformRequest(options.params, options)
+    } else {
+      options.data = options.transformRequest(options.data, options)
+    }
   }
-  options.data = transformRequest(options.data, options)
+  options.data = transformData(options.data, options)
   if (!options.data || isFormData(options.data)) {
     delete options.headers['Content-Type'] // Let the browser set it
   }
