@@ -16,11 +16,11 @@
     "prepublishOnly": "npm test && npm run build"
   },
   "dependencies": {
-    "qs": "^6.5.1"
+    "qs": "^6.10.1"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",
-    "babel-core": "^6.26.0",
+    "babel-core": "^6.26.3",
     "babel-preset-es2015": "^6.24.1",
     "babel-register": "^6.26.0",
     "coveralls": "^3.1.0",
